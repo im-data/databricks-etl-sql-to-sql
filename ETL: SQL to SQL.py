@@ -15,40 +15,25 @@ import adal
 
 # COMMAND ----------
 
-# List available secret scopes
-#dbutils.secrets.listScopes()
-
-# COMMAND ----------
-
-# Read from Key vault
+# Read credentials from Key vault
 dbUser = dbutils.secrets.get(scope="analytics-kv-secrets", key = "dikeAnalyticsId")
 dbPwd = dbutils.secrets.get(scope="analytics-kv-secrets", key = "dikeAnalyticsSecret")
 
 # COMMAND ----------
 
-GAdata = (spark.read
-  .format("jdbc")
-  .option("url", "jdbc:sqlserver://vm-im-warehouseserver-prod.database.windows.net:1433;databaseName=analytics_input;user=" + dbUser +"@vm-im-warehouseserver-prod;password=" + dbPwd +";encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;")
-  .option("dbtable", "ga_data_input")
-  .load()
+GAdata = (spark.read\
+  .format("jdbc")\
+  .option("url", "jdbc:sqlserver://vm-im-warehouseserver-prod.database.windows.net:1433;databaseName=analytics_input")\
+  .option("dbtable", "ga_data_input")\
+  .option("user", dbUser + "@vm-im-warehouseserver-prod")\
+  .option("password", dbPwd)\
+  .load()\
 )
-
-# COMMAND ----------
-
-GAdata.show()
 
 # COMMAND ----------
 
 GAdata = GAdata.sort('date')
 GAdata.show()
-
-# COMMAND ----------
-
-#display(GAdata)
-
-# COMMAND ----------
-
-#GAdata.where(GAdata.id == 1).select('content').collect()[0]['content']
 
 # COMMAND ----------
 
@@ -59,25 +44,6 @@ GAdata.show()
 
 text = json.loads(GAdata.select('content').collect()[-1]['content'])
 aquire_date = GAdata.select('date').collect()[-1]['date']
-
-# COMMAND ----------
-
-#print(text)
-
-# COMMAND ----------
-
-print(aquire_date)
-
-# COMMAND ----------
-
-#df=spark.createDataFrame([(1, text[0]['data']['rows'][0]['dimensions'])],["id","value"])
-#df.show(truncate=False)
-
-# COMMAND ----------
-
-#df2=df.withColumn("value",from_json(df.value,MapType(StringType(),StringType())))
-#df2.printSchema()
-#df2.show(truncate=False)
 
 # COMMAND ----------
 
@@ -93,7 +59,7 @@ columns = (["aquireDate", "publishDate", text[0]['columnHeader']['dimensions'][0
 # COMMAND ----------
 
 rows = []
-NUMBER = re.compile('^ilkkapohjalainen/11846/(?P<number>\d*).*')
+NUMBER = re.compile('^ilkkapohjalainen/11846/(/)?(?P<number>\d*).*')
 START_DATE = date(year=2020,month=2,day=16)
 
 for i in text[0]['data']['rows']:
@@ -121,25 +87,9 @@ rdd = spark.sparkContext.parallelize(rows)
 # COMMAND ----------
 
 
-#dfFromRDD1 = rdd.toDF()
 dfFromRDD1 = rdd.toDF(columns)
 dfFromRDD1.printSchema()
 
-
-# COMMAND ----------
-
-
-dfFromRDD1 = rdd.toDF(columns)
-dfFromRDD1.printSchema()
-
-
-# COMMAND ----------
-
-dfFromRDD1.show()
-
-# COMMAND ----------
-
-#dfFromRDD1.printSchema()
 
 # COMMAND ----------
 
@@ -149,8 +99,10 @@ dfFromRDD1.show()
 # COMMAND ----------
 
 dfFromRDD1.write \
-.format("jdbc")\
-.option("url", "jdbc:sqlserver://vm-im-warehouseserver-prod.database.windows.net:1433;database=analytics_data;user=" + dbUser + "@vm-im-warehouseserver-prod;password=" + dbPwd + ";encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;")\
-.option("dbtable", "[google_data].[interstitial]")\
-.mode("append")\
-.save()
+    .format("jdbc")\
+    .option("url", "jdbc:sqlserver://vm-im-warehouseserver-prod.database.windows.net:1433;database=analytics_data")\
+    .option("dbtable", "[google_data].[interstitial]")\
+    .option("user", dbUser + "@vm-im-warehouseserver-prod")\
+    .option("password", dbPwd)\
+    .mode("append")\
+    .save()
